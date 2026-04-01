@@ -779,7 +779,7 @@ pg.partial_corr(data=dt, x="X", y="Y", covar="Z")
 - on enleve `Z` de `Y` -> residu `Y'`
 - on correle `X'` et `Y'`
 
-💥 C'est la correlation "pure".
+C'est la correlation « pure ».
 
 ### Pourquoi c'est puissant
 
@@ -814,8 +814,6 @@ print(result)
 | `y` | variable 2 |
 | `covar` | variable a controler |
 | resultat | correlation sans biais |
-
-💥 Reponse entretien parfaite
 
 👉 "La correlation partielle mesure la relation entre deux variables en controlant l'effet d'une ou plusieurs variables supplementaires. Elle permet d'isoler une relation directe en eliminant les variables confondantes."
 
