@@ -142,6 +142,7 @@ Les notebooks **E2–E4** prolongent l’EDA (visualisations bivariées, corrél
 ### Statistiques avancées
 
 - [Corrélation partielle](#corrélation-partielle)
+- [E3 S5.1 : corrélation partielle NumPy (`E3` notebook, lignes 1–10)](#e3-s51-partial-corr-numpy)
 - [KDE supervisée](#kde-supervisée)
 - [Ticks sur l'axe des x (Year Built)](#ticks-sur-laxe-des-x-year-built)
 - [Explication : `qual_counts`](#explication--qual_counts)
@@ -816,6 +817,56 @@ print(result)
 | resultat | correlation sans biais |
 
 👉 "La correlation partielle mesure la relation entre deux variables en controlant l'effet d'une ou plusieurs variables supplementaires. Elle permet d'isoler une relation directe en eliminant les variables confondantes."
+
+<a id="e3-s51-partial-corr-numpy"></a>
+
+## E3 S5.1 — corrélation partielle NumPy (`E3` notebook, lignes 1–10)
+
+**Intitulé de référence :** E3 S5.1 : [`E3 - Analyse Multivariées et Corrélation.ipynb`](./E3%20-%20Analyse%20Multivariées%20et%20Corrélation.ipynb) (1–10) — fonction `partial_corr_one_covar`.
+
+La cellule concernée définit `partial_corr_one_covar` (en-tête + corps, typiquement les premières lignes de la cellule). Même idée que la [corrélation partielle](#corrélation-partielle) avec Pingouin : on enlève l’effet **linéaire** de `covar` sur `x` et sur `y`, puis on corrèle les **résidus**.
+
+```python
+def partial_corr_one_covar(data: pd.DataFrame, x: str, y: str, covar: str):
+    z = data[[covar]].values.astype(float)
+    z = np.column_stack([np.ones(len(z)), z])
+    xv = data[x].values.astype(float)
+    yv = data[y].values.astype(float)
+    bx, *_ = np.linalg.lstsq(z, xv, rcond=None)
+    by, *_ = np.linalg.lstsq(z, yv, rcond=None)
+    rx = xv - z @ bx
+    ry = yv - z @ by
+    return stats.pearsonr(rx, ry)
+```
+
+### Opérateur `@`
+
+En NumPy, **`@` est le produit matriciel** (équivalent pratique à `np.dot` pour des tableaux bien dimensionnés).
+
+- **`z @ bx`** : valeurs prédites de `xv` par une régression linéaire sur les colonnes de `z` (constante + `covar`), avec coefficients `bx`.
+- **`xv - z @ bx`** : **résidus** de `x` après retrait de cette partie linéaire. Idem pour `y` avec `by`, `ry`.
+
+### `np.linalg.lstsq(z, xv, rcond=None)`
+
+**`lstsq`** (*least squares*) cherche les coefficients **`bx`** qui minimisent \(\lVert z \cdot bx - xv \rVert^2\) : régression des moindres carrés de `xv` sur `z` (intercept + `covar`).
+
+Le motif **`bx, *_ = ...`** ne garde que le premier élément du retour (le vecteur de coefficients) et ignore le reste (résidus, rang, singular values selon la version de NumPy).
+
+### `rcond=None`
+
+**`rcond`** fixe le seuil lié au **conditionnement** / au **rang** de la matrice (valeurs singulières trop petites traitées comme nulles).
+
+Avec **`rcond=None`**, NumPy applique la politique **par défaut** (souvent liée à la précision machine) pour stabiliser le calcul quand `z` est presque singulière ou mal conditionnée.
+
+### Synthèse
+
+| Élément | Rôle |
+|--------|------|
+| `z` | Matrice du modèle : colonne de **1** + **`covar`** |
+| `lstsq` | Estime l’effet linéaire de `covar` sur `x` puis sur `y` |
+| `@` | Applique le modèle pour obtenir les **résidus** `rx`, `ry` |
+| `rcond=None` | Comportement numérique par défaut pour la résolution |
+| `pearsonr(rx, ry)` | Corrélation de Pearson des résidus = corrélation partielle (linéaire, une covariable) |
 
 ## KDE supervisée
 
