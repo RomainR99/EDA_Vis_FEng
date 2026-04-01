@@ -1,21 +1,150 @@
-# EDA Visulisation FeatureEngineering
+# Analyse Exploratoire des Données (EDA) sur le dataset Ames Housing
+
+## Description du projet
+
+Ce projet est un exercice pratique d’**Analyse Exploratoire des Données (EDA)** appliqué au dataset **Ames Housing**. L’objectif est de maîtriser les fondamentaux de l’EDA, de la visualisation et du feature engineering sur un jeu de données immobilier réel.
+
+## Le dataset : Ames Housing
+
+Le fichier `AmesHousing.csv` contient des données sur la vente de maisons individuelles à **Ames, Iowa (USA)** entre **2006 et 2010**.
+
+| Caractéristique | Détail |
+|-----------------|--------|
+| Nombre d’observations | ~2930 maisons (sources courantes) ; **dans ce dépôt**, le fichier fourni compte environ **2197** lignes |
+| Nombre de variables | **82** colonnes |
+| Variable cible | `SalePrice` (prix de vente en dollars) |
+| Types de variables | Quantitatives continues, discrètes, qualitatives nominales et ordinales |
+
+## Objectifs d’apprentissage
+
+À la fin de cet exercice, vous serez capable de :
+
+- **Comprendre la structure des données** — Explorer les dimensions, types de colonnes et premières lignes
+- **Évaluer la qualité des données** — Identifier les valeurs manquantes, doublons, types inappropriés
+- **Calculer des statistiques descriptives** — Indicateurs classiques (moyenne, écart-type) **et** robustes (médiane, MAD, IQR)
+- **Visualiser les distributions** — Histogrammes, boxplots, diagrammes en barres avec annotations
+- **Détecter les valeurs aberrantes** — Comparer la méthode IQR et le z-score modifié
+- **Formuler des hypothèses métier** — Transformer des observations en hypothèses testables
+
+## Variables ciblées (exercice E1)
+
+L’exercice se concentre sur **5 variables clés** :
+
+| Variable | Description | Type |
+|----------|-------------|------|
+| `Gr Liv Area` | Surface habitable (pieds carrés) | Quantitative continue |
+| `SalePrice` | Prix de vente (dollars) | Quantitative continue |
+| `Lot Area` | Surface du terrain (pieds carrés) | Quantitative continue |
+| `Year Built` | Année de construction | Quantitative discrète |
+| `Overall Qual` | Note globale de qualité (1 à 10) | Ordinale |
+
+## Structure de l’exercice (notebook E1)
+
+Le notebook **E1** est organisé en **6 sections** progressives :
+
+1. **Section 1 — Imports et chargement** — Bibliothèques, chargement du CSV, `head()`
+2. **Section 2 — Aperçu général et qualité** — Structure, manquants, doublons, sous-ensemble cible
+3. **Section 3 — Statistiques univariées** — Classiques, robustes, skew/kurtosis, tableau récap
+4. **Section 4 — Visualisations** — Histogrammes + boxplots, barres, analyse comparative
+5. **Section 5 — Détection d’outliers** — IQR, z-score modifié, comparaison et graphique
+6. **Section 6 — Hypothèses métier** — Trois hypothèses testables structurées
+
+## Concepts clés du cours
+
+### Statistiques classiques vs robustes
+
+| Mesure | Classique | Robuste |
+|--------|-----------|---------|
+| Centralité | Moyenne | Médiane |
+| Dispersion | Écart-type | MAD, IQR |
+| Détection d’outliers | Z-score | Z-score modifié |
+
+Les statistiques **robustes** résistent mieux aux valeurs extrêmes que les classiques.
+
+### Asymétrie (skewness)
+
+- **Positive (> 0)** : queue à droite, souvent moyenne > médiane
+- **Négative (< 0)** : queue à gauche, souvent moyenne < médiane
+- **Nulle (≈ 0)** : distribution plutôt symétrique
+
+### Aplatissement (kurtosis)
+
+- **Leptokurtique (> 0)** : queues épaisses, plus de valeurs extrêmes
+- **Mésokurtique (≈ 0)** : proche de la loi normale
+- **Platykurtique (< 0)** : queues fines
+
+### Section 5 — z-score modifié (rappel)
+
+\[
+Z_{\text{modifié}} = 0{,}6745 \times \frac{x - \text{médiane}}{\text{MAD}}
+\]
+
+Seuil de détection courant : **> 3,5**.
+
+## Prérequis techniques
+
+```sh
+pip install pandas numpy matplotlib seaborn scipy
+```
+
+*(Le projet utilise aussi `requirements.txt` avec les versions du dépôt.)*
+
+## Structure du dépôt
+
+```
+EDA_Vis_FEng/
+├── README.md                              # Ce fichier (guide + fiches mémo)
+├── requirements.txt                       # Dépendances Python
+├── AmesHousing.csv                      # Dataset Ames Housing
+├── E1 - Analyse Exploratoire des Données.ipynb    # EDA : énoncé + travail
+├── E2 - Visualisation univariées et bivariées.ipynb
+├── E3 - Analyse Multivariées et Corrélation.ipynb
+├── E4 - Détection d'anomalies.ipynb
+├── images/                              # Captures de figures (si présentes)
+└── .venv/                               # Environnement virtuel (local, optionnel)
+```
+
+Les notebooks **E2–E4** prolongent l’EDA (visualisations bivariées, corrélations multivariées, anomalies).
+
+---
 
 ## Sommaire
 
+### Projet et environnement
+
+- [Structure du dépôt](#structure-du-dépôt)
 - [Environnement virtuel (venv)](#environnement-virtuel-venv)
 - [Lancer le projet](#lancer-le-projet)
+
+### Fiches Python / pandas
+
 - [Ceci est une docstring](#ceci-est-une-docstring)
-- [describe(include='all')](#describeincludeall)
-- [Colonnes str -> devraient etre category](#colonnes-str--devraient-etre-category)
-- [La difference entre NaN et None](#la-difference-entre-nan-et-none)
-- [Lecture simple de describe + skew + kurtosis](#lecture-simple-de-describe--skew--kurtosis)
-- [df.select_dtypes(include='number')](#dfselect_dtypesincludenumber)
+- [`describe(include='all')`](#describeincludeall)
+- [Colonnes `str` → `category`](#colonnes-str--devraient-être-category)
+- [La différence entre `NaN` et `None`](#la-différence-entre-nan-et-none)
+- [Lecture simple de `describe()` + skew + kurtosis](#lecture-simple-de-describe--skew--kurtosis)
+- [`df.select_dtypes(include='number')`](#dfselect_dtypesincludenumber)
 - [Skewness (rappel simple)](#skewness-rappel-simple)
-- [bins (histogramme)](#bins-histogramme)
-- [pd.DataFrame.from_dict(..., orient='index')](#pddataframefrom_dict-orientindex)
-- [Resultats (images)](#resultats-images)
+- [`bins` (histogramme)](#bins-histogramme)
+- [`plt.tight_layout()`](#plttight_layout)
+- [`fig.tight_layout()`](#figtight_layout)
+- [`plt.subplots(1, 2, figsize=(12, 4))`](#pltsubplots1-2-figsize12-4)
+- [`sns.boxplot(...)` (explication rapide)](#snsboxplot-explication-rapide)
+- [`pd.DataFrame.from_dict(..., orient='index')`](#pddataframefrom_dict-orientindex)
+
+### Visualisation et résultats
+
+- [Résultats (images)](#resultats-images)
 - [Lecture approfondie du skew](#lecture-approfondie-du-skew)
 - [Heatmap (corrélations)](#heatmap-corrélations)
+- [`jitter=True` dans `sns.stripplot()`](#jittertrue-dans-snsstripplot)
+
+### Statistiques avancées
+
+- [Corrélation partielle](#corrélation-partielle)
+- [KDE supervisée](#kde-supervisée)
+- [Ticks sur l'axe des x (Year Built)](#ticks-sur-laxe-des-x-year-built)
+- [Explication : `qual_counts`](#explication--qual_counts)
 
 ## Environnement virtuel (venv)
 
@@ -75,7 +204,15 @@ Une fois le venv créé et les dépendances installées (voir [Environnement vir
 ```sh
 cd /Users/romain/Desktop/EDA_Vis_FEng
 source .venv/bin/activate
-python main.py
+jupyter notebook
+```
+
+Ouvrez ensuite les notebooks `E1` à `E4` et exécutez-les avec **Restart & Run All** pour valider le parcours complet.
+
+Alternative (sans interface graphique) :
+
+```sh
+jupyter nbconvert --to notebook --execute "E1 - Analyse Exploratoire des Données.ipynb" --inplace
 ```
 
 ## `describe(include='all')`
