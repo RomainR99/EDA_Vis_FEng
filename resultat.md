@@ -1,6 +1,10 @@
 ## Sommaire
 
+- [E1bis — Histogramme, Q-Q plot, barplots, prix par quartier](#e1bis-vue-densemble)
 - [E1bis — Section 5 : outliers sur le prix (IQR, z-score modifié)](#e1bis-section-5)
+- [E2bis — Section 2 (E2S2) : `SalePrice` — histogramme + KDE, boxplot, ECDF](#e2bis-section-2)
+- [E2bis — Section 3 : barplots `Neighborhood`, `MSZoning`, `Condition1`, `Condition2`](#e2bis-section-3)
+- [E2bis — Section 4 : `SalePrice` par quartier (boxplots, médiane croissante)](#e2bis-section-4)
 - [E3bis — Section 1 : one-hot encoding](#e3bis-section-1)
 - [E3bis — Section 3 : nuage de dispersion, `MSZoning`](#e3bis-section-3)
 - [E3bis — Section 4 : VIF (multicolinéarité)](#e3bis-section-4)
@@ -9,6 +13,124 @@
 - [E5bis — Section 2 : pipeline baseline (OHE + Lasso) et RMSE](#e5bis-section-2)
 - [E5bis amélioré — `COLS_NUM` et comparaison des RMSE](#e5bis-ameliore)
 - [E5 ter — variables métier enrichies (`E5 ter.ipynb`)](#e5-ter)
+
+---
+
+<a id="e1bis-vue-densemble"></a>
+
+# E1bis — Histogramme + KDE, Q-Q plot, barplots, prix par quartier
+
+*(Notebook **E1bis** — vue d’ensemble sur `SalePrice` et la localisation.)*
+
+## 1. Histogramme + KDE (gauche)
+
+👉 Tu regardes la **distribution** de **`SalePrice`**.
+
+🔍 **Ce que ça montre :**
+
+- forte **concentration** autour de **~100 k$ – 200 k$** ;
+- **longue queue** vers la **droite** (grands prix).
+
+👉 **Donc :** distribution **asymétrique à droite** (*right-skewed*).
+
+### KDE = *Kernel Density Estimation*
+
+👉 **En français :** **estimation de densité** (par noyaux).
+
+Dans le notebook, on trace souvent l’histogramme **avec** la courbe KDE, par exemple :
+
+```python
+sns.histplot(df_loc["SalePrice"], kde=True)
+```
+
+👉 **Tu affiches alors :**
+
+- l’**histogramme** (barres) ;
+- la **KDE** (courbe **lisse** superposée).
+
+### Différence histogramme vs KDE
+
+| | **Histogramme** | **KDE** |
+|---|-----------------|---------|
+| Forme | barres, aspect « **en blocs** » | **courbe continue** |
+| Réglage | dépend du nombre de **bins** (intervalles) | lisse la forme globale de la densité |
+| Lecture | détail par intervalle | **plus facile à lire** pour la **tendance** globale de la distribution |
+
+👉 En résumé : l’histogramme compte les effectifs par **tranches** ; la KDE est une **approximation lisse** de la **densité** sous-jacente.
+
+## 2. Q-Q plot (droite) — le plus important
+
+👉 Ce graphique **compare** ta distribution à une **loi normale**.
+
+🔹 **Si les données étaient normales :** les points suivraient la **ligne de référence** (souvent en rouge).
+
+🔥 **Ce que tu observes typiquement :**
+
+- **Au centre :** les points **suivent** la ligne → zone « **quasi normale** ».
+- **À droite** (valeurs élevées) : les points **s’écartent** au-dessus de la ligne → **trop** de grandes valeurs (prix très élevés).
+- **À gauche :** parfois une **légère** déviation.
+
+🎯 **Conclusion du Q-Q plot :**
+
+- **`SalePrice` n’est pas** une variable **normale**.
+- Elle est **skewée à droite** (queue longe vers les prix hauts).
+
+## 3. Traduction simple
+
+👉 Il y a **beaucoup** de maisons dans une fourchette « **normale** » de prix, et **quelques** maisons **très chères**.
+
+👉 **Donc :** présence de **valeurs extrêmes** / **outliers** côté haut de distribution (au sens visuel et statistique).
+
+## 4. Impact pour ton modèle
+
+👉 **Problème :** les modèles **linéaires** classiques supposent souvent des **résidus** ou une cible mieux adaptés lorsque la cible est **proche** d’une loi normale ; une **skew** marquée peut **biaiser** l’ajustement ou la métrique en dollars.
+
+👉 **Solution fréquente :**
+
+```python
+y = np.log1p(SalePrice)
+```
+
+👉 Cela tend à rendre la distribution de la cible **plus symétrique** et **plus proche** d’une forme « normale » après transformation (à vérifier sur un nouvel histogramme / Q-Q sur `log1p`).
+
+## 5. Barplots (`MSZoning`, `Condition1`, `Condition2`)
+
+👉 Ils montrent que **certaines modalités dominent** (ex. **`RL`** pour le zonage) : données **déséquilibrées** entre catégories.
+
+👉 **Impact :** les modalités **plus fréquentes** pèsent **davantage** dans l’estimation (et l’OHE crée plus de volume pour ces classes).
+
+## 6. Prix médian par quartier
+
+👉 Graphique **central** pour la localisation : il met en évidence des **écarts importants** de **prix médian** entre **`Neighborhood`**.
+
+👉 **Conclusion :** **`Neighborhood`** est une variable **très informative** pour le niveau de prix (effet « quartier »).
+
+### Figures (prix par quartier — E1bis)
+
+![Prix médian (ou distribution) par quartier — figure 1](images/prix:quartier1.png)
+
+![Prix médian (ou distribution) par quartier — figure 2](images/prix:quartier2.png)
+
+## 7. Lecture métier globale
+
+**Formulation possible pour un rendu :**
+
+> La distribution des prix est **fortement asymétrique**, avec une **queue** vers les valeurs élevées, ce que **confirme** le **Q-Q plot**. Cela **justifie** l’usage d’une **transformation logarithmique** de la cible dans les modèles linéaires. Par ailleurs, les **écarts de prix médian entre quartiers** sont **marqués**, ce qui indique que la **localisation** joue un **rôle clé** dans la valorisation des biens.
+
+## 8. Résumé ultra simple
+
+| Idée | Lecture |
+|------|--------|
+| **Histogramme + KDE** | Skew à **droite** |
+| **Q-Q plot** | **Pas** normal ; déviation surtout aux **grands** quantiles |
+| **Barplots** | **Catégories dominantes** (déséquilibre) |
+| **Prix médian par quartier** | **Gros** impact de la localisation |
+
+## 9. Niveau entretien
+
+**Phrase type :**
+
+> « Le **Q-Q plot** montre une **déviation** notable dans les **quantiles supérieurs**, ce qui indique une distribution **asymétrique** avec des **valeurs extrêmes** côté prix élevés ; cela **justifie** une **transformation logarithmique** de la cible avant modélisation linéaire. »
 
 ---
 
@@ -152,6 +274,251 @@ On visualise mieux les **quartiers chers** vs **abordables** qu’avec des moyen
 | **IQR** | Repère les valeurs **hors moustaches** (zone « normale » globale). |
 | **z modifié (\|z\| > 3,5)** | Repère les **extrêmes** au sens robuste (réf. Iglewicz & Hoaglin). |
 | **Contexte localisation** | Ces points peuvent **fausser** les comparaisons de prix par zone si on ne regarde que la moyenne ; la médiane et les graphiques par quartier sont des compléments naturels. |
+
+---
+
+<a id="e2bis-section-2"></a>
+
+# E2bis — Section 2 (E2S2) : `SalePrice` — histogramme + KDE, boxplot, ECDF
+
+*(Notebook **E2bis** — visualisations **univariées** sur le prix de vente.)*
+
+![Histogramme + KDE, boxplot et fonction de répartition empirique (ECDF) de `SalePrice` — E2bis section 2](images/E2S2.png)
+
+## Lecture des trois graphiques
+
+### 1. Histogramme + KDE (gauche)
+
+- Distribution **asymétrique à droite** (*right-skewed*) : pic d’effectifs vers **~100 k$ – 200 k$**, **queue longue** vers les prix élevés (jusqu’à ~800 k$).
+- La **KDE** (courbe lisse) suit le même message : masse principale à gauche, étalement vers la droite.
+
+### 2. Boxplot (centre)
+
+- **Médiane** du prix autour de **~160 k$** (trait dans la boîte).
+- **Boîte (IQR)** : ordre de grandeur typique **~130 k$ – 215 k$** selon le graphique.
+- **Moustache supérieure** vers **~350 k$** ; au-delà, de **nombreux points** (cercles) = **outliers** côté prix haut, dont des valeurs **très élevées** (500 k$ – 750 k$).
+
+### 3. Fonction de répartition empirique — ECDF (droite)
+
+**Définition (à retenir) :** l’ECDF donne, pour chaque valeur de prix sur l’axe horizontal, **la proportion de maisons dont le prix est inférieur ou égal** à cette valeur (fonction de répartition **empirique** calculée sur les données).
+
+#### Comment le lire
+
+🔹 **Axe X :** **`SalePrice`** (le prix).
+
+🔹 **Axe Y :** **proportion** entre **0** et **1** (0 % à 100 % de l’échantillon).
+
+#### Lecture concrète (exemple)
+
+👉 Si tu lis un point du graphique tel que :
+
+- **x = 200 000** $  
+- **y ≈ 0,7**
+
+👉 **Ça veut dire :** environ **70 %** des maisons ont un prix **inférieur ou égal à 200 000 $** (et donc ~30 % au-dessus).
+
+#### Ce que montre ton graphique
+
+🔥 **Montée rapide au début**
+
+👉 La courbe **monte vite** entre **~100 k$** et **~200 k$** (voire jusqu’à **~300 k$** selon le tracé).
+
+👉 **Donc :** une **grande part** des ventes se situe dans cette **fourchette** de prix — la masse de la distribution est **basse / moyenne**, pas dans le haut de gamme.
+
+**Compléments :**
+
+- Environ **80 %** des observations peuvent se trouver sous **~250 k$** (proportion ~**0,8** sur l’axe vertical) : à vérifier sur ta courbe exacte.
+- La fin de courbe **se plate** vers **1,0** : les **très grands prix** sont **rares**, ce qui est **cohérent** avec la **queue à droite** de l’histogramme et les **outliers** du boxplot.
+
+## Synthèse
+
+Les trois vues **confirment** la **skew à droite** et la **présence de valeurs extrêmes** sur `SalePrice`. C’est **cohérent** avec l’usage d’une **transformation** (ex. `log1p`) pour la modélisation linéaire, déjà argumentée dans la partie **E1bis** / détection d’outliers.
+
+---
+
+<a id="e2bis-section-3"></a>
+
+# E2bis — Section 3 : barplots catégoriels (`Neighborhood`, `MSZoning`, `Condition1`, `Condition2`)
+
+*(Notebook **E2bis** — fréquences des modalités sur le sous-jeu localisation.)*
+
+![Barplots — `Neighborhood`, `MSZoning`, `Condition1`, `Condition2` — E2bis section 3](images/E2bisS3.png)
+
+## 1. `Neighborhood` (en haut à gauche)
+
+🔍 **Ce que tu vois**
+
+- certains **quartiers dominent** : **NAmes**, **CollgCr**, **OldTown** ;
+- d’autres sont **rares** : **MeadowV**, **ClearCr**, etc.
+
+🎯 **Interprétation**
+
+👉 **Distribution déséquilibrée** → le modèle « verra » **beaucoup plus** certaines modalités que d’autres.
+
+💡 **Insight**
+
+- **Quartiers fréquents** → estimation en général **plus fiable** (plus d’exemples).
+- **Quartiers rares** → plus de **bruit** / **incertitude** sur les coefficients ou encodages.
+
+## 2. `MSZoning` (en haut à droite)
+
+🔍 **Ce que tu vois**
+
+- **RL** **domine** largement (souvent **~80 %+** de l’échantillon selon le graphique) ;
+- **RM** : **minoritaire** mais présent ;
+- **FV** : encore moins ;
+- **autres** modalités : **quasi inexistantes** à cette échelle.
+
+🎯 **Interprétation**
+
+👉 Variable **très déséquilibrée**.
+
+💡 **Insight**
+
+- Le modèle apprendra **surtout** le comportement du zonage **RL**.
+- Les **autres** catégories auront **peu** d’effet marginal (peu de lignes).
+
+⚠️ **Important**
+
+👉 Cela peut **expliquer** pourquoi **`MSZoning`** a un **effet limité** dans des **corrélations simples** ou des vues linéaires globales : une modalité **écrase** la distribution.
+
+## 3. `Condition1` (en bas à gauche)
+
+🔍 **Ce que tu vois**
+
+- **Norm** domine **très** fortement ;
+- quelques maisons en **Feedr**, **Artery** ;
+- le **reste** des modalités → **très rare**.
+
+🎯 **Interprétation**
+
+👉 Variable **peu informative** au sens de la **variabilité** : peu de dispersion entre modalités utiles.
+
+💡 **Insight**
+
+- La **majorité** des biens sont en situation **« normale »** (pas de proximité particulière mise en avant).
+- **Peu de variation** → **pouvoir explicatif** limité dans un modèle global.
+
+## 4. `Condition2` (en bas à droite)
+
+🔍 **Ce que tu vois**
+
+- **Quasi 100 %** **Norm** ;
+- les **autres** catégories sont **quasi absentes**.
+
+🎯 **Interprétation**
+
+👉 Variable **quasi inutile** pour discriminer les lignes : presque **constante**.
+
+💡 **Insight**
+
+- **Presque aucune information** nouvelle pour le modèle par rapport à « tout le monde est Norm ».
+
+## 5. Conclusion globale — résumé des 4 variables
+
+| Variable | Utilité (ordre de grandeur) |
+|----------|-----------------------------|
+| **`Neighborhood`** | **Très importante** — variabilité riche, effet quartier fort |
+| **`MSZoning`** | **Moyenne** — informative mais **très** skew vers **RL** |
+| **`Condition1`** | **Faible** — presque tout **Norm**, rares **Feedr** / **Artery** |
+| **`Condition2`** | **Quasi nulle** — quasiment tout **Norm** |
+
+## 6. Lecture métier
+
+**Formulation possible pour un rendu :**
+
+> La variable **`Neighborhood`** présente une **forte variabilité** et constitue un **facteur clé** dans l’explication des prix. À l’inverse, **`Condition1`** et surtout **`Condition2`** sont **très déséquilibrées**, avec une majorité de valeurs **« Norm »**, ce qui **limite** leur **capacité explicative**.
+
+## 7. Impact sur le modèle
+
+👉 Cela **éclaire** notamment :
+
+- pourquoi **`Condition1`** peut avoir une **corrélation faible** avec le prix (ordre de grandeur **~0,18** en Spearman sur encodage simple, selon tes analyses) ;
+- pourquoi **`Condition2`** **n’aide presque pas** ;
+- pourquoi **`Neighborhood`** est **cruciale** pour la localisation.
+
+## 8. Actions recommandées (feature selection)
+
+- **Garder :** **`Neighborhood`**, **`MSZoning`**.
+- **Optionnel :** **`Condition1`** (à tester avec / sans).
+- **Envisager de retirer :** **`Condition2`** si tu veux **alléger** le modèle sans perdre de signal (à valider par **RMSE** / CV sur **ton** pipeline).
+
+## 9. Résumé ultra simple
+
+👉 Ces graphiques montrent des **catégories déséquilibrées** : certaines variables **portent** l’information (**`Neighborhood`**), d’autres **non** (**`Condition2`** en particulier).
+
+## 10. Niveau entretien
+
+**Phrase type :**
+
+> « Les distributions montrent un **fort déséquilibre** des variables catégorielles, notamment **`Condition2`**, ce qui **limite** leur **capacité prédictive**. À l’inverse, **`Neighborhood`** présente une **variabilité importante** et constitue une **variable clé**. »
+
+---
+
+### Annexe : que signifient **Feedr** et **Artery** ? (`Condition1`, Ames Housing)
+
+Ce sont des codes de **proximité** du bien par rapport aux **routes** (environnement immédiat).
+
+#### 1. **Feedr** (*Feeder street*)
+
+👉 Rue de **raccordement** / **secondaire** avec un trafic **modéré**, souvent pour rejoindre une **route principale** — **plus de passage** qu’une rue résidentielle très calme.
+
+💡 **Impact prix (tendance)** : en général un peu **moins valorisant** que **Norm** (bruit, trafic).
+
+#### 2. **Artery** (*Arterial street*)
+
+👉 **Grande voie** / **axe principal**, **trafic élevé**, bruit, parfois pollution perçue.
+
+💡 **Impact prix (tendance)** : souvent **moins attractif** que **Norm** — effet **plus marqué** que **Feedr** dans beaucoup de cas.
+
+#### Comparaison rapide
+
+| Code | Type de contexte | Impact sur le prix (tendance) |
+|------|------------------|-------------------------------|
+| **Norm** | situation « normale » | **neutre** (référence implicite) |
+| **Feedr** | route secondaire / feeder | **légèrement** négatif |
+| **Artery** | grande route | **plus** négatif |
+
+#### Dans ton jeu de données
+
+👉 **Beaucoup** de **Norm**, **peu** de **Feedr** / **Artery** → l’effet **réel** mais **statistiquement discret** au global (cohérent avec une corrélation **modeste**).
+
+**Lecture métier :**
+
+> Les biens proches de routes **importantes** (**Feedr**, **Artery**) tendent à être **moins valorisés** (bruit, trafic), mais cet effet reste **secondaire** par rapport à la **qualité**, la **surface** ou le **quartier**.
+
+**Résumé :** **Feedr** ≈ route secondaire ; **Artery** ≈ grande route ; impact global souvent **négatif** sur le prix, **limité** ici par la **rareté** des modalités.
+
+---
+
+<a id="e2bis-section-4"></a>
+
+# E2bis — Section 4 : `SalePrice` par quartier (médiane croissante)
+
+*(Notebook **E2bis** — boxplots du prix par **`Neighborhood`**, triés par **médiane** de `SalePrice` croissante.)*
+
+![`SalePrice` par quartier, ordonné par médiane croissante — E2bis section 4](images/E2bisS4.png)
+
+## Idée principale
+
+👉 **Plus le quartier est cher (médiane élevée), plus la dispersion des prix à l’intérieur du quartier tend à être importante.**
+
+Sur le graphique, l’axe horizontal va des quartiers **les moins chers** (à gauche, ex. **MeadowV**, **IDOTRR**, **BrDale**) aux quartiers **les plus chers** (à droite, ex. **NoRidge**, **NridgHt**, **StoneBr**). La **ligne médiane** dans chaque boîte **monte** bien de gauche à droite.
+
+## Lecture visuelle
+
+- **Quartiers « entrée de gamme »** (à gauche) : boîtes souvent **plus plates**, moustaches **plus courtes** → les prix sont **plus resserrés** autour d’un niveau bas.
+- **Quartiers haut de gamme** (à droite) : boîtes **plus hautes**, moustaches **plus longues** → **IQR** et étendue des prix **plus larges** : on y trouve à la fois des biens très coûteux et une variété de segments (taille, qualité, terrain).
+- **Outliers** (points au-dessus des moustaches) : visibles sur plusieurs quartiers ; certains (**NoRidge**, etc.) montrent des ventes **très élevées** (600 k$ – 700 k$+), ce qui **étire** encore la dispersion perçue.
+
+## Interprétation métier
+
+Dans les zones **premium**, le **même code quartier** recouvre souvent des **maisons très différentes** (grande surface, vue, qualité de finition, lot), d’où une **variabilité de prix** plus forte. Dans des quartiers **plus homogènes** et **modestes**, les biens se ressemblent davantage → **moins de spread**.
+
+## Conséquence pour la modélisation
+
+- Une variable **`Neighborhood`** capture le **niveau** moyen du marché, mais la **variance résiduelle** du prix peut être **plus grande** dans les quartiers chers : les **erreurs** d’un modèle simple (ex. seulement le quartier) peuvent y être **plus grandes** en dollars.
+- Cela **renforce** l’intérêt d’ajouter des variables **structurelles** (surface, qualité, etc.) surtout pour expliquer l’**intérieur** de chaque quartier.
 
 ---
 
