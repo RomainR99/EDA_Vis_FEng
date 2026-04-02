@@ -5,6 +5,10 @@
 - [E3bis — Section 3 : nuage de dispersion, `MSZoning`](#e3bis-section-3)
 - [E3bis — Section 4 : VIF (multicolinéarité)](#e3bis-section-4)
 - [E3bis — Section 5 : corrélation partielle (Spearman)](#e3bis-section-5)
+- [E5bis — Section 1 : dimensions `X_train` / `X_test`](#e5bis-section-1)
+- [E5bis — Section 2 : pipeline baseline (OHE + Lasso) et RMSE](#e5bis-section-2)
+- [E5bis amélioré — `COLS_NUM` et comparaison des RMSE](#e5bis-ameliore)
+- [E5 ter — variables métier enrichies (`E5 ter.ipynb`)](#e5-ter)
 
 ---
 
@@ -501,3 +505,265 @@ Même en **retirant l’effet du zonage** au sens de cette **corrélation partie
 > La corrélation partielle entre le prix et `Condition1`, **contrôlée par le zonage**, est **faible mais significative** (\(r \approx 0{,}18\)). Cela suggère que l’**environnement immédiat** (proximité) joue un rôle sur le prix, mais de manière **modeste** par rapport à d’autres variables du marché.
 
 **Limites :** `Cond1_num` et `MSZ_num` sont des **codes ordinaux arbitraires** (LabelEncoder) : l’ordre n’est pas toujours métier ; une analyse plus poussée utiliserait des contrastes ou des modèles avec variables catégorielles explicites.
+
+<a id="e5bis-section-1"></a>
+
+# E5bis — Section 1 : dimensions de `X_train` et `X_test`
+
+Après `train_test_split` sur le jeu réduit **localisation** (`Neighborhood`, `MSZoning`, `Condition1`, `Condition2` comme prédicteurs, `SalePrice` comme cible), on obtient typiquement :
+
+```text
+X_train.shape = (1537, 4)
+X_test.shape  = (660, 4)
+```
+
+## Lecture de `X_train.shape = (1537, 4)`
+
+| Élément | Signification |
+|--------|----------------|
+| **1537** | Nombre de **lignes** = nombre de **ventes** (observations) dans le **jeu d’entraînement**. |
+| **4** | Nombre de **colonnes** = les **4** variables explicatives de localisation (pas le prix). |
+
+## Lecture de `X_test.shape = (660, 4)`
+
+| Élément | Signification |
+|--------|----------------|
+| **660** | Nombre de **lignes** dans le **jeu de test** : ventes réservées à l’**évaluation** du modèle (pas utilisées pour l’apprentissage des transformations). |
+| **4** | Même **nombre de colonnes** que `X_train` (mêmes variables, même ordre). |
+
+## Vérification
+
+\(1537 + 660 = 2197\) : on retrouve le nombre de lignes du fichier `AmesHousing.csv` pour les **features** (chaque maison apparaît **une fois** soit dans le train, soit dans le test).
+
+**Rappel :** toutes les **imputations, encodages et scalers** doivent être **appris** sur `X_train` (et `y_train`) puis **appliqués** à `X_test`, pour éviter la **fuite de données** vers le test.
+
+<a id="e5bis-section-2"></a>
+
+# E5bis — Section 2 : pipeline baseline (OHE + Lasso) et RMSE
+
+## Structure du `Pipeline`
+
+```python
+Pipeline([
+    ("prep", make_ohe_prep()),
+    ("model", Lasso(alpha=1.0, max_iter=20000)),
+])
+```
+
+`make_ohe_prep()` regroupe en général **imputation** (modalité la plus fréquente pour les manquants) puis **One-Hot Encoding** sur les 4 variables catégorielles, via un `ColumnTransformer` ou équivalent.
+
+### Enchaînement logique
+
+| Étape | Rôle |
+|--------|------|
+| **1. Preprocessing (`prep`)** | Préparer les entrées du modèle : imputation des catégories manquantes, puis **one-hot** (chaque modalité → colonnes 0/1). |
+| **2. Modèle (`model`)** | **Lasso** (régression linéaire avec pénalité L1 sur les coefficients) : prédit `SalePrice` à partir des indicatrices. |
+| **3. Prédiction** | `pipeline.predict(X_test)` → prix prédits pour le jeu de test. |
+| **4. Évaluation** | Comparer aux vrais prix avec une métrique d’erreur, ici la **RMSE** en **dollars**. |
+
+## Résultat typique (jeu réduit localisation)
+
+```text
+RMSE ≈ 53 255,81 $
+```
+
+*(Valeur obtenue avec `y` en dollars, sans transformation log de la cible, selon la cellule baseline du notebook.)*
+
+## C’est quoi la RMSE ?
+
+**RMSE** = **Root Mean Squared Error** (racine de l’erreur quadratique moyenne).
+
+\[
+\mathrm{RMSE} = \sqrt{\frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{y}_i)^2}
+\]
+
+- Elle s’exprime **dans la même unité** que la cible : ici des **dollars**.
+- C’est une mesure de l’**écart typique** entre prix observés et prix prédits (les grandes erreurs comptent plus que les petites à cause du carré).
+
+**Lecture simple :** l’erreur de prédiction est « en moyenne » de cet ordre de grandeur sur le test (au sens RMSE, pas nécessairement la moyenne arithmétique des erreurs absolues).
+
+## Interprétation sur Ames Housing
+
+- Les prix du jeu vont souvent de l’ordre de **~130 k$** à **~250 k$** pour la médiane / quartiles globaux ; beaucoup de ventes se situent dans une fourchette **~150 k$ – 200 k$** « typique ».
+- Une RMSE d’**environ 53 k$** est donc **élevée** relativement à ce niveau de prix : cela représente souvent **de l’ordre de 25 % à 35 %** du prix pour une maison « moyenne » (ordre de grandeur : \(53 / 200 \approx 27\%\)).
+
+**Conclusion pratique :** avec **seulement** la **localisation** (4 variables), le modèle lineaire baseline **explique mal** le prix au sens de la RMSE — ce qui est **attendu** : surface, qualité, année, etc. manquent. La RMSE sert de **référence** pour comparer à des pipelines plus riches (log-cible, target encoding, etc.).
+
+**Nuance :** juger si une RMSE est « bonne » dépend aussi de l’**écart-type** des prix sur le test et des **modèles concurrents** ; ici l’objectif est surtout **pédagogique** (pipeline + métrique).
+
+---
+
+<a id="e5bis-ameliore"></a>
+
+# E5bis amélioré — ajout de variables numériques (`COLS_NUM`)
+
+On reprend le même découpage train/test (**70 % / 30 %**, `random_state=42`) que dans **E5bis**, mais on enrichit les prédicteurs avec quatre variables numériques liées à la **taille** et à la **qualité** du bien :
+
+```python
+COLS_NUM = ["OverallQual", "GrLivArea", "GarageArea", "TotalBsmtSF"]
+```
+
+Les **quatre** variables de localisation (`Neighborhood`, `MSZoning`, `Condition1`, `Condition2`) restent inchangées ; le prétraitement inclut alors une branche **numérique** (imputation à la médiane + `RobustScaler`) en plus du **one-hot** sur les catégories.
+
+## Comparaison des RMSE (même échelle, dollars)
+
+| Modèle / étape | E5bis (localisation seule) | E5bis amélioré (+ `COLS_NUM`) |
+|----------------|----------------------------|----------------------------------|
+| **RMSE baseline (OHE + Lasso)** | 53 255,81 $ | **34 960,56 $** |
+| **RMSE avec `log1p` sur `y` + Ridge** | 56 139,52 $ | **33 602,35 $** |
+| **RMSE pipeline FE** (TargetEncoder `Neighborhood` + OHE + `log y`) | 55 273,79 $ | **33 305,14 $** |
+
+**Synthèse :** en ajoutant `OverallQual`, `GrLivArea`, `GarageArea` et `TotalBsmtSF`, la **baseline OHE + Lasso** passe d’environ **53,3 k$** à **35,0 k$** de RMSE ; le bloc **Ridge sur `log1p(y)`** passe d’environ **56,1 k$** à **33,6 k$**. Le pipeline **FE** suit la même tendance (**~55,3 k$** → **~33,3 k$**). L’ordre de grandeur des erreurs devient cohérent avec un modèle qui dispose d’informations **structurelles** (surface, qualité globale) en plus de la **localisation**.
+
+## Comparaison « même famille » : baseline Lasso vs Ridge + `log y` (E5bis)
+
+Sur le jeu **sans** `COLS_NUM`, la comparaison directe sur la même échelle ($) était :
+
+- **Baseline OHE + Lasso :** 53 255,81 $
+- **OHE + Ridge + `log y`** (prédictions ramenées avec `expm1`) : 56 139,52 $
+
+Ici, le Ridge sur la cible transformée peut **paraître** moins bon en RMSE dollars que le Lasso sur `y` brut — cela dépend du couple modèle / transformation / `alpha` ; l’intérêt du `log1p` se voit surtout en combinaison avec un prétraitement adapté et des modèles régularisés sur l’échelle log. Dès que **`COLS_NUM`** est ajouté, **Ridge + `log y`** devient nettement **meilleur** que la baseline Lasso (**33,6 k$** vs **35,0 k$**).
+
+## Code typique — Ridge sur `y_train` en `log1p` (notebook)
+
+```python
+y_tr_log = np.log1p(y_train)
+
+base_log = Pipeline(
+    [
+        ("prep", make_ohe_prep()),  # E5bis : OHE seul ; E5bis amélioré : prep num + cat
+        ("model", Ridge(alpha=10.0)),
+    ]
+)
+base_log.fit(X_train, y_tr_log)
+pred_log = np.expm1(base_log.predict(X_test))
+rmse_log = root_mean_squared_error(y_test, pred_log)
+print("RMSE avec log1p sur y + Ridge :", round(rmse_log, 2))
+```
+
+Dans **E5bis amélioré**, `make_ohe_prep()` est remplacé par un `ColumnTransformer` qui traite **`COLS_NUM`** et les colonnes de localisation comme dans le notebook correspondant.
+
+## Conclusion chiffrée (ordre de grandeur)
+
+**Ton RMSE chute de :** **~53 k$ → ~33 k$** (sur les métriques comparables une fois `COLS_NUM` ajouté).
+
+👉 **Soit une amélioration d’environ 20 000 $** sur l’erreur typique : le modèle **comprend nettement mieux** le niveau de prix des maisons qu’avec la seule localisation.
+
+## Inversion Lasso vs Ridge + `log` (avec `COLS_NUM`)
+
+| Modèle | RMSE ($) |
+|--------|----------|
+| **Lasso** (baseline OHE) | **34 960** |
+| **Ridge + `log`** (`log1p` sur `y`, `expm1` sur les prédictions) | **33 602** |
+
+👉 **Inversion :** avec les variables numériques en plus, **Ridge + log devient meilleur** que la baseline Lasso — alors que sur **E5bis** (localisation seule), la RMSE en dollars pouvait favoriser Lasso par rapport à Ridge+log selon la configuration.
+
+### 6. Pourquoi Ridge + `log` devient meilleur
+
+**Effet du log** — `y_log = np.log1p(y)` :
+
+👉 Réduit en pratique l’impact de la **dissymétrie** (skew), des **valeurs extrêmes** (outliers) et de la **variance** de la cible sur l’échelle brute des dollars.
+
+**Ridge** :
+
+👉 Gère mieux les **variables corrélées** et un **grand nombre de features** (indicatrices + numériques) grâce à la pénalisation L2.
+
+**En résumé :**
+
+👉 **Plus de données + meilleure structure des prédicteurs** → **Ridge + log** peut **dépasser** Lasso sur la RMSE en dollars après retour `expm1`.
+
+### 7. Pipeline FE (feature engineering)
+
+**RMSE ≈ 33 305 $**
+
+👉 **Encore meilleur** que Ridge + log seul sur le même jeu enrichi.
+
+👉 Cela indique que les **transformations supplémentaires** (par ex. target encoding du quartier, OHE sur d’autres catégories, branche numérique soignée) **améliorent encore** le modèle au-delà du pipeline « baseline » sur `log1p(y)`.
+
+### 8. Lecture métier (important)
+
+**Variables utiles à connaître :**
+
+- **`OverallQual`** : qualité globale du bien (très liée au prix).
+- **`GrLivArea`** : surface habitable hors sous-sol.
+- **`GarageArea`**, **`TotalBsmtSF`** : surfaces garage et sous-sol.
+
+**Formulation possible pour un rendu :**
+
+> L’ajout de variables **structurelles** — qualité globale, surface habitable, taille du garage et du sous-sol — permet de **réduire fortement** l’erreur de prédiction. Cela **confirme** que le prix d’un bien immobilier dépend **davantage** de ses **caractéristiques intrinsèques** que de sa **seule localisation** (la localisation reste utile, mais ne suffit pas à expliquer seule le niveau de prix).
+
+### 9. Conclusion globale
+
+👉 Ce que l’on met en évidence :
+
+- **Localisation** → utile mais **insuffisante** seule pour une RMSE basse.
+- **Structure du bien** (surfaces, qualité) → **déterminante** pour expliquer le prix.
+- **Transformation logarithmique** de la cible → **améliore** les modèles linéaires sur ce type de distribution de prix.
+- **Ridge > Lasso** dans ce contexte **quand** il y a **plus de features** et des corrélations entre prédicteurs (sous réserve de tuning et de prep identique).
+
+### 10. Niveau entretien + leviers « métier »
+
+**Phrase type :**
+
+> « L’ajout de variables structurelles **réduit significativement la RMSE**, ce qui montre que ces variables **expliquent une grande partie de la variance** du prix. De plus, la **transformation logarithmique** permet d’**améliorer** les performances des modèles linéaires comme **Ridge**. »
+
+**Levier pour améliorer encore le modèle** — créer des variables **métier** simples :
+
+```python
+df["TotalSF"] = df["GrLivArea"] + df["TotalBsmtSF"]
+df["Age"] = df["YrSold"] - df["YearBuilt"]
+df["RemodAge"] = df["YrSold"] - df["YearRemod/Add"]  # nom après df.columns.str.replace(" ", "")
+```
+
+👉 On **ajoute du signal** (surface totale approximative, âge du bien, ancienneté de la dernière rénovation) **sans** forcément complexifier la famille de modèles (toujours régression régularisée, etc.).
+
+---
+
+<a id="e5-ter"></a>
+
+# E5 ter — variables métier enrichies (`E5 ter.ipynb`)
+
+Notebook **E5 ter** : même split train/test (**70 % / 30 %**, `random_state=42`) que les autres **E5bis**, avec un jeu de prédicteurs **élargi** (voir notebook). **`X_train.shape` typique : (1537, 14).**
+
+## Variables métier ajoutées (par rapport à E5bis amélioré)
+
+### Dérivées (calculées dans le notebook)
+
+| Variable | Définition |
+|----------|------------|
+| **`TotalSF`** | `GrLivArea + TotalBsmtSF` (surface utile globale ; remplace l’usage séparé de `GrLivArea` et `TotalBsmtSF` dans les features pour limiter la redondance) |
+| **`Age`** | `YrSold - YearBuilt` |
+| **`RemodAge`** | `YrSold - YearRemod/Add` (après normalisation des noms de colonnes, le champ d’origine est `Year Remod/Add` → `YearRemod/Add`) |
+| **`TotalBath`** | `FullBath + 0,5×HalfBath + BsmtFullBath + 0,5×BsmtHalfBath` |
+
+### Numériques brutes supplémentaires
+
+| Variable | Rôle |
+|----------|------|
+| **`LotArea`** | taille du terrain |
+| **`GarageCars`** | capacité garage (places) |
+
+Les numériques utilisées dans le pipeline incluent aussi **`OverallQual`**, **`GarageArea`**, et les dérivées ci-dessus (liste complète dans le notebook : `COLS_NUM`).
+
+### Catégorielles supplémentaires (one-hot)
+
+| Variable | Rôle |
+|----------|------|
+| **`KitchenQual`** | qualité de la cuisine |
+| **`ExterQual`** | qualité du revêtement extérieur |
+
+**Rappel :** les variables de **localisation** restent **`Neighborhood`**, **`MSZoning`**, **`Condition1`**, **`Condition2`**.
+
+## RMSE indicatives (exécution type du notebook)
+
+| Modèle | RMSE ($) (ordre de grandeur) |
+|--------|------------------------------|
+| Baseline **OHE + Lasso** | **~31 856** |
+| **Ridge** + `log1p(y)` | **~31 769** |
+| Pipeline **FE** (TE `Neighborhood` + OHE + num + `log y`) | **~31 992** |
+
+Sur cette configuration, la RMSE passe d’environ **~35 k$** (E5bis amélioré avec peu de variables) à **~31,8 k$** pour Lasso / Ridge + log : les **variables structurelles et qualitatives** réduisent nettement l’erreur. Le pipeline **FE** peut être **légèrement moins bon** que Ridge + log sur tout l’OHE selon le split et le nombre de dummies — à valider au cas par cas (tuning de `alpha`, etc.).
+
+## Synthèse en une phrase
+
+> L’ajout de **surfaces agrégées** (`TotalSF`), d’**âges** (`Age`, `RemodAge`), d’une **agrégation sanitaires** (`TotalBath`), du **terrain** et du **garage**, ainsi que des **qualités cuisine / façade** (`KitchenQual`, `ExterQual`), complète la localisation et abaisse fortement la RMSE par rapport au seul jeu « localisation + quatre numériques » de **E5bis amélioré**.
