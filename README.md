@@ -4,6 +4,46 @@
 
 Ce projet est un exercice pratique d’**Analyse Exploratoire des Données (EDA)** appliqué au dataset **Ames Housing**. L’objectif est de maîtriser les fondamentaux de l’EDA, de la visualisation et du feature engineering sur un jeu de données immobilier réel.
 
+---
+
+## Sommaire
+### Projet et environnement
+- [Structure du dépôt](#structure-du-dépôt)
+- [Environnement virtuel (venv)](#environnement-virtuel-venv)
+- [Lancer le projet](#lancer-le-projet)
+
+### Fiches Python / pandas
+- [Ceci est une docstring](#ceci-est-une-docstring)
+- [`describe(include='all')`](#describeincludeall)
+- [Colonnes `str` → `category`](#colonnes-str--devraient-être-category)
+- [La différence entre `NaN` et `None`](#la-différence-entre-nan-et-none)
+- [Lecture simple de `describe()` + skew + kurtosis](#lecture-simple-de-describe--skew--kurtosis)
+- [`df.select_dtypes(include='number')`](#dfselect_dtypesincludenumber)
+- [Skewness (rappel simple)](#skewness-rappel-simple)
+- [`bins` (histogramme)](#bins-histogramme)
+- [`plt.tight_layout()`](#plttight_layout)
+- [`fig.tight_layout()`](#figtight_layout)
+- [`plt.subplots(1, 2, figsize=(12, 4))`](#pltsubplots1-2-figsize12-4)
+- [`sns.boxplot(...)` (explication rapide)](#snsboxplot-explication-rapide)
+- [`pd.DataFrame.from_dict(..., orient='index')`](#pddataframefrom_dict-orientindex)
+
+### Visualisation et résultats
+- [Résultats (images)](#resultats-images)
+- [Lecture approfondie du skew](#lecture-approfondie-du-skew)
+- [Heatmap (corrélations)](#heatmap-corrélations)
+- [`jitter=True` dans `sns.stripplot()`](#jittertrue-dans-snsstripplot)
+
+### Pré-traitement ML
+- [Pipeline / ColumnTransformer (dtype)](#pipeline-columntransformer-dtype)
+
+### Statistiques avancées
+- [Corrélation partielle](#corrélation-partielle)
+- [Target Encoding](#target-encoding)
+- [E3 S5.1 : corrélation partielle NumPy (`E3` notebook, lignes 1–10)](#e3-s51-partial-corr-numpy)
+- [KDE supervisée](#kde-supervisee)
+- [Ticks sur l'axe des x (Year Built)](#ticks-sur-laxe-des-x-year-built)
+- [Explication : `qual_counts`](#explication--qual_counts)
+
 ## Le dataset : Ames Housing
 
 Le fichier `AmesHousing.csv` contient des données sur la vente de maisons individuelles à **Ames, Iowa (USA)** entre **2006 et 2010**.
@@ -107,45 +147,6 @@ EDA_Vis_FEng/
 Les notebooks **E2–E4** prolongent l’EDA (visualisations bivariées, corrélations multivariées, anomalies).
 
 ---
-
-## Sommaire
-
-### Projet et environnement
-
-- [Structure du dépôt](#structure-du-dépôt)
-- [Environnement virtuel (venv)](#environnement-virtuel-venv)
-- [Lancer le projet](#lancer-le-projet)
-
-### Fiches Python / pandas
-
-- [Ceci est une docstring](#ceci-est-une-docstring)
-- [`describe(include='all')`](#describeincludeall)
-- [Colonnes `str` → `category`](#colonnes-str--devraient-être-category)
-- [La différence entre `NaN` et `None`](#la-différence-entre-nan-et-none)
-- [Lecture simple de `describe()` + skew + kurtosis](#lecture-simple-de-describe--skew--kurtosis)
-- [`df.select_dtypes(include='number')`](#dfselect_dtypesincludenumber)
-- [Skewness (rappel simple)](#skewness-rappel-simple)
-- [`bins` (histogramme)](#bins-histogramme)
-- [`plt.tight_layout()`](#plttight_layout)
-- [`fig.tight_layout()`](#figtight_layout)
-- [`plt.subplots(1, 2, figsize=(12, 4))`](#pltsubplots1-2-figsize12-4)
-- [`sns.boxplot(...)` (explication rapide)](#snsboxplot-explication-rapide)
-- [`pd.DataFrame.from_dict(..., orient='index')`](#pddataframefrom_dict-orientindex)
-
-### Visualisation et résultats
-
-- [Résultats (images)](#resultats-images)
-- [Lecture approfondie du skew](#lecture-approfondie-du-skew)
-- [Heatmap (corrélations)](#heatmap-corrélations)
-- [`jitter=True` dans `sns.stripplot()`](#jittertrue-dans-snsstripplot)
-
-### Statistiques avancées
-
-- [Corrélation partielle](#corrélation-partielle)
-- [E3 S5.1 : corrélation partielle NumPy (`E3` notebook, lignes 1–10)](#e3-s51-partial-corr-numpy)
-- [KDE supervisée](#kde-supervisée)
-- [Ticks sur l'axe des x (Year Built)](#ticks-sur-laxe-des-x-year-built)
-- [Explication : `qual_counts`](#explication--qual_counts)
 
 ## Environnement virtuel (venv)
 
@@ -826,6 +827,13 @@ print(result)
 
 La cellule concernée définit `partial_corr_one_covar` (en-tête + corps, typiquement les premières lignes de la cellule). Même idée que la [corrélation partielle](#corrélation-partielle) avec Pingouin : on enlève l’effet **linéaire** de `covar` sur `x` et sur `y`, puis on corrèle les **résidus**.
 
+### Quand on n'utilise pas `pingouin`
+
+Dans `E3 - Analyse Multivariées et Corrélation.ipynb`, si la librairie **`pingouin`** n’est pas installée (cas `ImportError`), le notebook calcule la corrélation partielle avec cette fonction **NumPy** :
+- régression linéaire (moindres carrés) de `x` sur `covar` pour obtenir les **résidus** `rx`
+- régression linéaire (moindres carrés) de `y` sur `covar` pour obtenir les **résidus** `ry`
+- corrélation de Pearson entre `rx` et `ry` via `stats.pearsonr(rx, ry)`
+
 ```python
 def partial_corr_one_covar(data: pd.DataFrame, x: str, y: str, covar: str):
     z = data[[covar]].values.astype(float)
@@ -868,6 +876,89 @@ Avec **`rcond=None`**, NumPy applique la politique **par défaut** (souvent lié
 | `rcond=None` | Comportement numérique par défaut pour la résolution |
 | `pearsonr(rx, ry)` | Corrélation de Pearson des résidus = corrélation partielle (linéaire, une covariable) |
 
+<a id="target-encoding"></a>
+## Target Encoding
+
+Le **target encoding** consiste à remplacer une variable catégorielle par la **moyenne de la target** (ici le `SalePrice`) pour chaque catégorie.
+
+Exemple avec ton dataset (Ames Housing) :
+
+Variable : `Neighborhood`  
+Target : `SalePrice`
+
+| Neighborhood | SalePrice |
+|---|---:|
+| NAmes | 150k |
+| NAmes | 160k |
+| CollgCr | 220k |
+
+Target encoding :
+
+| Neighborhood | Encodage |
+|---|---:|
+| NAmes | 155k |
+| CollgCr | 220k |
+
+Tu remplaces donc :
+- `"NAmes"` → `155000`
+- `"CollgCr"` → `220000`
+
+### Pourquoi c’est puissant ?
+
+Parce que tu transformes une catégorie en information directement liée au prix.
+
+Contrairement à :
+- One-hot → `0/1` (peu informatif)
+- Label encoding → arbitraire
+
+### Le gros piège : DATA LEAKING
+
+Le problème vient de l’utilisation directe de la target (`SalePrice`) pour créer une feature.
+
+Si tu encodes les catégories en utilisant toute la dataset (train + test), tu “injectes” de l’information du test dans le train.
+
+Conséquence : tes scores sont artificiellement meilleurs (overfitting “caché”).
+
+Règle de base : **encoder en ne calculant les moyennes qu’avec le train**, puis appliquer sur le test/validation.
+
+<a id="pipeline-columntransformer-dtype"></a>
+## Pipeline / ColumnTransformer (dtype)
+
+Quand tu prépares un modèle, tu as souvent besoin de traiter différemment :
+- les colonnes numériques (standardisation, etc.)
+- les colonnes catégorielles (one-hot encoding, etc.)
+
+Le couple **`ColumnTransformer` + (souvent) `Pipeline`** te permet de combiner ces traitements proprement.
+
+Code exemple (sélection automatique par `dtype`) :
+
+```python
+from sklearn.compose import make_column_selector
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+
+preprocessor = ColumnTransformer([
+    ('num', StandardScaler(), make_column_selector(dtype_include=['int64', 'float64'])),
+    ('cat', OneHotEncoder(handle_unknown='ignore'), make_column_selector(dtype_include=['object', 'category']))
+])
+```
+
+### Comment lire le code
+
+- `make_column_selector(dtype_include=[...])` : sélectionne automatiquement les colonnes dont le type correspond à la liste.
+- `ColumnTransformer([...])` : applique une transformation à chaque groupe de colonnes :
+  - `'num'` : `StandardScaler()` sur les colonnes numériques
+  - `'cat'` : `OneHotEncoder(handle_unknown='ignore')` sur les colonnes catégorielles
+
+### Avantage
+
+- **Automatique** : pas besoin de lister à la main les colonnes numériques/catégorielles.
+- **Robuste** : marche même si le dataset change (ajout/suppression de colonnes).
+- **Sûr** : `handle_unknown='ignore'` évite une erreur si une nouvelle catégorie apparaît au moment de `transform()` (non vue pendant `fit()`).
+
+En pratique, ce `preprocessor` est généralement branché dans une `Pipeline` avec un modèle (fit sur train, transform sur validation/test).
+
+<a id="kde-supervisee"></a>
 ## KDE supervisée
 
 Une courbe **KDE supervisee**, c'est simplement une KDE (Kernel Density Estimation) ou tu separes les donnees par classe (label) pour comparer leurs distributions.
